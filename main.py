@@ -16,7 +16,7 @@ con.commit()
 
 class Films():
     def addFilm(self):
-        name, rate, kind, related_words = [input("Film adı giriniz: "),input("Puanınız: "),input("Film türünü giriniz: "),input("Filmle bağdaştırdığınız kelimeler: ")]
+        name, rate, kind, related_words = [input("Enter movie name: "),input("Your score: "),input("Enter movie genre: "),input("Words associated with movie: ")]
         id = r(10000,999999)
         ftime = d.now().strftime("%d/%m/%Y %H:%M")
         cursor.execute(f"INSERT INTO films values ({id},{1},'{name}','{rate}','{kind}','{related_words}','{ftime}')")
@@ -85,7 +85,7 @@ class Films():
         df = frame(fdata)
         print(df)
     def filmsIHaveWatchedInXYear(self):
-        year = input("Hangi yıla ait veri görmek istersiniz?\n")    
+        year = input("Which year would you like to see data for?\n")    
         cursor.execute(f"SELECT * from films where is_active=1")
         datas = cursor.fetchall()
         data = {
@@ -142,7 +142,7 @@ class Films():
 films = Films()
 
 while True:
-    print(f"\n{40*'-'}\n\nYapmak istediğiniz işlemi seçin....\n0) Programdan Çık\n1) Film Ekleme\n2) Film Silme\n3) Veri Listeleme\n4) Kaldırılan Filmleri Geri Getir\n5) Veritabanı Temizleme\n\nFiltreler:\n\t6 - Bu yıl ne izledim?\n\t7 - Ne zaman ne izledim?\nAacaba ne izlesem?\n\t8 - Rastgele Filmler Öner (IMDb)\n")
+    print(f"\n{40*'-'}\n\nSelect the action you want to do....\n0) Exit Program\n1) Add Movies\n2) Delete Movies\n3) Data Listing\n4) Restore Removed Movies\n5) Database Cleanup\n\nFilters:\n\t6 - What did I watch this year?\n\t7 - What time did I watch?\nI wonder what I should watch?\n\t8 - Recommend Random Movies (IMDb)\n")
     secim=input("")
     match int(secim):
         case 1:
@@ -150,7 +150,7 @@ while True:
         case 2:
             films.listAllData()
             t.sleep(2)
-            films.removeFilm(id=int(input("Film ID Giriniz: ")))
+            films.removeFilm(id=int(input("Type and enter ID of film you want to remove: ")))
         case 3:
             films.listAllData()
         case 4:
