@@ -165,4 +165,4 @@ while True:
             films.suggestFilms()
         case 0:
             quit()
-    t.sleep(10)  
+    t.sleep(4)  
