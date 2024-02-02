@@ -5,9 +5,7 @@ from random import shuffle, randint
 from pandas import DataFrame
 from database import db
 
-"""
-[input("Enter movie name: "),input("Your score: "),input("Enter movie genre: "),input("Words associated with movie: ")]
-"""
+
 class InvalidInput(Exception):
     pass
 
