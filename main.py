@@ -1,39 +1,71 @@
-from datetime import datetime as d
+from datetime import datetime
 from requests import get
 from bs4 import BeautifulSoup
-from random import shuffle, randint as r
-from pandas import DataFrame as frame
-import time as t
-import sqlite3 as sql
+from random import shuffle, randint
+from pandas import DataFrame
+from database import db
 
+"""
+[input("Enter movie name: "),input("Your score: "),input("Enter movie genre: "),input("Words associated with movie: ")]
+"""
+class InvalidInput(Exception):
+    pass
 
+class Input:
+    def ask(self, type_: type = str, message: str = "What's up?"):
+        try:
+            data = type_.__call__(input(message))
+            return data
+        except ValueError:
+            raise InvalidInput("Invalid input. Please try again.")
 
-con = sql.connect("database.sql", check_same_thread=False)
-cursor = con.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS films (id int, is_active int, name text, rate text, kind text, related_words text, time text)")
-con.commit() 
-
-
-class Films():
-    def addFilm(self):
-        name, rate, kind, related_words = [input("Enter movie name: "),input("Your score: "),input("Enter movie genre: "),input("Words associated with movie: ")]
-        id = r(10000,999999)
-        ftime = d.now().strftime("%d/%m/%Y %H:%M")
-        cursor.execute(f"INSERT INTO films values ({id},{1},'{name}','{rate}','{kind}','{related_words}','{ftime}')")
-        con.commit()
-    def removeFilm(self, id):
-        cursor.execute("SELECT f.id from films f")
-        self.veriler = cursor.fetchall()
-        for x in self.veriler:
-            if id in x:
-                cursor.execute(f"UPDATE films SET is_active=0 WHERE id={id}")
-                con.commit()
-    def deleteDb(self):
-        cursor.execute("DROP TABLE films")
+class Films:
+    """
+    This class is used to manage films in the database.
     
-    def listAllData(self):
-        cursor.execute("SELECT * FROM films where is_active=1")
-        veriler = cursor.fetchall()
+    Methods:
+    - add: Add a new film to the database.
+    - remove: Remove a film from the database.
+    - drop: Drop the table from the database.
+    - list_films: List all films in the database.
+    - restore_deleted_films: Restore all deleted films.
+    - show_deleted_films: Show all deleted films.
+    - get_films: Get all films from the database.
+    - suggest: Suggest a list of films from IMDb.
+    
+    Returns:
+    - DataFrame: A pandas DataFrame object.
+    - None: If the method does not return anything."""
+    def __init__(self):
+        self.input = Input()
+    
+    def add(self, name: str, rate: str, kind: str, related_words: str | list[str]):
+        film_id = randint(100000, 999999)
+        formatted_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+        if isinstance(related_words, list):
+            related_words = ", ".join(related_words)
+        db.insert('films', {
+            'id': film_id,
+            'is_active': 1,
+            'name': name,
+            'rate': rate,
+            'kind': kind,
+            'related_words': related_words,
+            'time': formatted_time
+        })
+    
+    def delete(self, film_id: int):
+        films = db.select("films")
+        for film in films:
+            if film_id == film.get("id"):
+                db.update("films", {"is_active": 0}, {"id": film_id})
+                break
+    
+    def drop(self):
+        db.drop("films")
+    
+    def list_films(self):
+        films = db.select("films")
         data = {
         "id": [],
         "name":[],
@@ -43,26 +75,29 @@ class Films():
         "time":[]
 
         }
-        for x in range(len(veriler)):
-            data["id"].append(veriler[x][0])
-            data["name"].append(veriler[x][2])
-            data["rate"].append(veriler[x][3])
-            data["kind"].append(veriler[x][4])
-            data["related"].append(veriler[x][5])
-            data["time"].append(veriler[x][6])
-        df = frame(data)
-        print(df)
-    def addRemovedFilms(self):
-        cursor.execute(f"UPDATE films SET is_active={1} where is_active=0")
-        con.commit()
-    def showRemovedFilms(self):
-        cursor.execute("SELECT f.name from films f")
-        silinenler = cursor.fetchall()
-        for x in silinenler:
-            print(x)
-    def filmsIHaveWatchedInThisYear(self):
-        cursor.execute(f"SELECT * from films where is_active=1")
-        datas = cursor.fetchall()
+        for film_id, film in enumerate(films):
+            data["id"].append(film.get("id"))
+            data["name"].append(film.get("name"))
+            data["rate"].append(film.get("rate"))
+            data["kind"].append(film.get("kind"))
+            data["related"].append(film.get("related_words"))
+            data["time"].append(film.get("time"))
+        df = DataFrame(data)
+        return df
+    
+    def restore_deleted_films(self):
+        films = db.select("films")
+        for film in films:
+            if film.get("is_active") == 0:
+                db.update("films", {"is_active": 1}, {"id": film.get("id")})
+    
+    def show_deleted_films(self):
+        deleted_films = db.select("films")
+        for i, film in enumerate(deleted_films):
+            print(f"{i+1}. {film.get('name')}", end="\n********************")
+    
+    def get_films(self, year: int | str = None):
+        films = db.select("films")
         fdata = {
         "id": [],
         "name":[],
@@ -72,97 +107,106 @@ class Films():
         "time":[]
 
         }
-        for x in range(len(datas)):
-            time_data = datas[x][6]
-            if str(d.now().today().year) == [time_data[z:z+4] for z in range(len(time_data))][6]:
-                    fdata["id"].append(datas[x][0])
-                    fdata["name"].append(datas[x][2])
-                    fdata["rate"].append(datas[x][3])
-                    fdata["kind"].append(datas[x][4])
-                    fdata["related"].append(datas[x][5])
-                    fdata["time"].append(datas[x][6])
+        for i, film in enumerate(films):
+            time_data = film.get("time")
+            expected_year = year or datetime.now().today().year
+            if str(expected_year) == [time_data[z:z+4] for z in range(len(time_data))][6]:
+                    fdata["id"].append(film.get("id"))
+                    fdata["name"].append(film.get("name"))
+                    fdata["rate"].append(film.get("rate"))
+                    fdata["kind"].append(film.get("kind"))
+                    fdata["related"].append(film.get("related_words"))
+                    fdata["time"].append(film.get("time"))
             
-        df = frame(fdata)
-        print(df)
-    def filmsIHaveWatchedInXYear(self):
-        year = input("Which year would you like to see data for?\n")    
-        cursor.execute(f"SELECT * from films where is_active=1")
-        datas = cursor.fetchall()
-        data = {
-        "id": [],
-        "name":[],
-        "rate":[],
-        "kind":[],
-        "related":[],
-        "time":[]
-
-        }
-        for x in range(len(datas)):
-            time_data = datas[x][6]
-            if str(year) == [time_data[z:z+4] for z in range(len(time_data))][6]:
-                    data["id"].append(datas[x][0])
-                    data["name"].append(datas[x][2])
-                    data["rate"].append(datas[x][3])
-                    data["kind"].append(datas[x][4])
-                    data["related"].append(datas[x][5])
-                    data["time"].append(datas[x][6])
-            
-        df = frame(data)
-        print(df)
-
-    def suggestFilms(self):
+        df = DataFrame(fdata)
+        return df
+    
+    def suggest(self, piece: int = 10, m_max: int = 50):
         soup = BeautifulSoup(get("https://www.imdb.com/list/ls075103447/?st_dt=&sort=user_rating,desc&mode=detail&page=1").content, "html.parser")
+        names = [name[:name.find("(")] for name in [x.text.replace("\n","")[x.text.replace("\n","").find(".")+1:] for x in soup.find_all("h3",{"class":"lister-item-header"})]][:m_max]
+        rates = [x.text.replace("\n", "") for x in soup.find_all("div", {"class":"ipl-rating-star small"})][:m_max]
+        genres  = [x.text.replace("\n", "").replace(" ","") for x in soup.find_all("span", {"class":"genre"})][:m_max]
+        years = [x.text.replace("\n", "").replace(" ","").replace("Video","").replace("TVMovie","") for x in soup.find_all("span", {"class":"lister-item-year text-muted unbold"})][:m_max]
 
-        names = [name[0:name.find("(")] for name in [x.text.replace("\n","")[x.text.replace("\n","").find(".")+1:] for x in soup.find_all("h3",{"class":"lister-item-header"})]][0:50]
-        rates = [x.text.replace("\n", "") for x in soup.find_all("div", {"class":"ipl-rating-star small"})][0:50]
-        genres  = [x.text.replace("\n", "").replace(" ","") for x in soup.find_all("span", {"class":"genre"})][0:50]
-        years = [x.text.replace("\n", "").replace(" ","").replace("Video","").replace("TVMovie","") for x in soup.find_all("span", {"class":"lister-item-year text-muted unbold"})][0:50]
-
-
-        indisler = [x for x in range(50)]
-        shuffle(indisler)
-        indisler = indisler[0:10]
-        n,r,g,y = [],[],[],[]
+        ids = list(range(m_max))
+        shuffle(ids)
+        ids = ids[:piece]
+        names, rates, genres, years = [], [], [], []
 
 
-        for x in indisler:
-            n.append(names[x])
-            r.append(rates[x])
-            g.append(genres[x])
-            y.append(years[x])
+        for _id in ids:
+            names.append(names[_id])
+            rates.append(rates[_id])
+            genres.append(genres[_id])
+            years.append(years[_id])
 
-        df = frame({
-            "name":n,
-            "rate":r,
-            "genres":g,
-            "year":y
+        df = DataFrame({
+            "name": names,
+            "rate": rates,
+            "genres": genres,
+            "year": years
         })
 
-        print(df)
+        return df
+
 films = Films()
 
-while True:
-    print(f"\n{40*'-'}\n\nSelect the action you want to do....\n0) Exit Program\n1) Add Movies\n2) Delete Movies\n3) Data Listing\n4) Restore Removed Movies\n5) Database Cleanup\n\nFilters:\n\t6 - What did I watch this year?\n\t7 - What time did I watch?\nI wonder what I should watch?\n\t8 - Recommend Random Movies (IMDb)\n")
-    secim=input("")
-    match int(secim):
+homepage_message = \
+"""Welcome to the film database.
+What do you want to do?
+
+1. Add a new film
+2. Remove a film
+3. Drop the table
+4. List all films
+5. Restore deleted films
+6. Show deleted films
+7. Get films by current year
+8. Get films by a specific year
+9. Suggest films
+10. Suggest films by a specific number
+11. Exit the program
+"""
+def main():
+    match (films.input.ask(type_=int, message=f"{homepage_message}\n\nYour choice: ")):
         case 1:
-            films.addFilm()
+            name  =  films.input.ask(message="Enter the name of the film: ")
+            rate  =  films.input.ask(message="Enter the rate of the film: ")
+            kind  =  films.input.ask(message="Enter the kind of the film: ")
+            words =  films.input.ask(message="Enter the related words of the film: ")
+            films.add(name, rate, kind, words)
         case 2:
-            films.listAllData()
-            t.sleep(2)
-            films.removeFilm(id=int(input("Type and enter ID of film you want to remove: ")))
+            film_id = films.input.ask(type_=int, message="Enter the id of the film: ")
+            films.delete(film_id)
         case 3:
-            films.listAllData()
+            films.drop()
         case 4:
-            films.addRemovedFilms()            
+            print(films.list_films())
         case 5:
-            films.deleteDb()
+            films.restore_deleted_films()
         case 6:
-            films.filmsIHaveWatchedInThisYear()
+            films.show_deleted_films()
         case 7:
-            films.filmsIHaveWatchedInXYear()
+            print(films.get_films())
         case 8:
-            films.suggestFilms()
-        case 0:
-            quit()
-    t.sleep(4)  
+            year = films.input.ask(type_=int, message="Enter the year: ")
+            print(films.get_films(year))
+        case 9:
+            print(films.suggest())
+        case 10:
+            piece = films.input.ask(type_=int, message="Enter the number of films to suggest: ")
+            print(films.suggest(piece))
+        case 11:
+            print("Goodbye!")
+            return
+        case _:
+            print("Invalid option!")
+    verify = films.input.ask(message="Wanna see the control menu again? (Y/n): ")
+    if "y" in verify.lower():
+        main()
+    else:
+        print("Goodbye!")
+        return
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,4 @@
+requests
+bs4
+MentoDB==2.1.0
+pandas
